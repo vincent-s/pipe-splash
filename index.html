@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pipe Splash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Figtree:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: plumber's workbench. Tiled board on the left, parts tray and gauges on the right; tray moves above the board on phones */
+:root {
+  --bg: #e7efee;
+  --surface: #f8fbfa;
+  --ink: #15302f;
+  --muted: #587270;
+  --tile: #dbe7e5;
+  --tile-alt: #d3e1df;
+  --grout: #b9cbc8;
+  --pipe: #c07a43;
+  --pipe-edge: #7a4623;
+  --channel: #3a281c;
+  --liquid: #17b3c8;
+  --liquid-hi: #a4f3fb;
+  --liquid-text: #0a8496;
+  --valve: #d94b30;
+  --goal: #2f9a5c;
+  --block: #6b7a78;
+  --block-hi: #94a3a1;
+  --warn: #d94b30;
+  --shadow: rgba(21, 48, 47, .18);
+  --font-display: "Bungee", "Arial Black", Impact, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1b1c; --surface: #15282a; --ink: #e2eeec; --muted: #8aa4a1;
+    --tile: #1a3032; --tile-alt: #172b2d; --grout: #0a1516;
+    --pipe: #c98652; --pipe-edge: #6c3d1c; --channel: #1a120c;
+    --liquid: #2bcfe3; --liquid-hi: #c0f8ff; --liquid-text: #5fdcec;
+    --valve: #ff6e50; --goal: #4cc47f; --block: #3b4e50; --block-hi: #587072;
+    --warn: #ff6e50; --shadow: rgba(0, 0, 0, .45);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1b1c; --surface: #15282a; --ink: #e2eeec; --muted: #8aa4a1;
+  --tile: #1a3032; --tile-alt: #172b2d; --grout: #0a1516;
+  --pipe: #c98652; --pipe-edge: #6c3d1c; --channel: #1a120c;
+  --liquid: #2bcfe3; --liquid-hi: #c0f8ff; --liquid-text: #5fdcec;
+  --valve: #ff6e50; --goal: #4cc47f; --block: #3b4e50; --block-hi: #587072;
+  --warn: #ff6e50; --shadow: rgba(0, 0, 0, .45);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, canvas:focus-visible { outline: 3px solid var(--liquid); outline-offset: 3px; }
+
+.app { max-width: 1000px; margin: 0 auto; padding-block: 20px 36px; padding-inline: 16px; display: flex; flex-direction: column; gap: 20px; }
+
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.8rem, 5vw, 2.6rem); line-height: 1; margin: 0; text-wrap: balance; }
+h1 span { color: var(--liquid-text); }
+.tagline { margin: 6px 0 0; color: var(--muted); font-size: .92rem; }
+
+.difficulty { display: inline-flex; gap: 2px; padding: 3px; border: 2px solid var(--ink); border-radius: 999px; background: var(--surface); }
+.difficulty button { border: 0; background: transparent; padding: 6px 14px; border-radius: 999px; font-weight: 700; font-size: .85rem; letter-spacing: .06em; text-transform: uppercase; }
+.difficulty button small { display: block; font: 500 .68rem/1 var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--muted); }
+.difficulty button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.difficulty button[aria-pressed="true"] small { color: var(--surface); opacity: .75; }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 24px; align-items: start; }
+.board-wrap { position: relative; min-width: 0; display: flex; justify-content: center; }
+#board { display: block; border-radius: 10px; box-shadow: 0 0 0 4px var(--ink), 0 14px 34px var(--shadow); touch-action: manipulation; }
+
+.overlay { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; }
+.overlay-card { background: var(--surface); border: 3px solid var(--ink); border-radius: 14px; padding: 22px 24px; max-width: 300px; text-align: center; box-shadow: 0 12px 30px var(--shadow); display: flex; flex-direction: column; gap: 8px; animation: pop .35s cubic-bezier(.2, 1.4, .4, 1); }
+.overlay-card h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.8rem; line-height: 1.05; margin: 0; }
+.overlay-card.win h2 { color: var(--goal); }
+.overlay-card.lose h2 { color: var(--valve); }
+.overlay-card p { margin: 0; color: var(--muted); }
+@keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.side { display: flex; flex-direction: column; gap: 18px; }
+.label { font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+.tray { display: flex; gap: 8px; align-items: flex-end; }
+.tray canvas { width: 44px; height: 44px; border-radius: 8px; box-shadow: 0 0 0 2px var(--grout); }
+.tray canvas.next { width: 64px; height: 64px; box-shadow: 0 0 0 3px var(--ink); }
+
+.gauges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.gauge { background: var(--surface); border-radius: 10px; padding: 8px 10px; box-shadow: inset 0 0 0 2px var(--grout); }
+.gauge b { display: block; font: 600 1.25rem/1.2 var(--font-mono); font-variant-numeric: tabular-nums; }
+.gauge span { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+.timer { display: flex; flex-direction: column; gap: 6px; }
+.timer-text { font-weight: 600; min-height: 1.5em; }
+.timer-bar { height: 10px; border-radius: 99px; background: var(--grout); overflow: hidden; }
+.timer-bar i { display: block; height: 100%; width: 100%; background: var(--liquid); border-radius: inherit; transform-origin: left; }
+
+.buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { flex: 1 1 auto; border: 2px solid var(--ink); background: var(--surface); padding: 9px 14px; border-radius: 10px; font-weight: 700; }
+.btn.primary { background: var(--ink); color: var(--surface); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn:not(:disabled):hover { transform: translateY(-1px); }
+
+.howto { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: .88rem; display: flex; flex-direction: column; gap: 4px; }
+.howto strong { color: var(--ink); }
+
+@media (max-width: 760px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .side { order: -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+  .side .tray-block, .side .timer, .side .buttons { grid-column: 1 / -1; }
+  .side .gauges { grid-column: 1 / -1; }
+  .howto-block { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .overlay-card { animation: none; }
+  .btn:not(:disabled):hover { transform: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Pipe <span>Splash</span></h1>
+      <p class="tagline">Lay pipe from the valve to the drain before the water arrives.</p>
+    </div>
+    <div class="difficulty" role="group" aria-label="Difficulty">
+      <button type="button" id="lvl-easy" data-level="easy">Easy<small>7 × 7</small></button>
+      <button type="button" id="lvl-medium" data-level="medium">Medium<small>9 × 9</small></button>
+      <button type="button" id="lvl-hard" data-level="hard">Hard<small>12 × 12</small></button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="board-wrap" id="boardWrap">
+      <canvas id="board" tabindex="0" aria-label="Game board. Use arrow keys to move and Enter to place a pipe."></canvas>
+      <div class="overlay" id="overlay" hidden>
+        <div class="overlay-card" id="ovCard">
+          <h2 id="ovTitle">Splash!</h2>
+          <p id="ovText"></p>
+          <button type="button" class="btn primary" id="ovBtn">Play again</button>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="tray-block">
+        <p class="label">Next pipes</p>
+        <div class="tray" id="tray"></div>
+      </div>
+      <div class="timer">
+        <div class="timer-text" id="timerText" aria-live="polite"></div>
+        <div class="timer-bar"><i id="timerBar"></i></div>
+      </div>
+      <div class="gauges">
+        <div class="gauge"><b id="score">0</b><span>Score</span></div>
+        <div class="gauge"><b id="pipes">0</b><span>Pipes</span></div>
+        <div class="gauge"><b id="best">0</b><span>Best</span></div>
+      </div>
+      <div class="buttons">
+        <button type="button" class="btn primary" id="flowBtn">Open valve now</button>
+        <button type="button" class="btn" id="newBtn">New board</button>
+      </div>
+      <div class="howto-block">
+        <p class="label">How to play</p>
+        <ol class="howto">
+          <li>Click a tile to place the <strong>highlighted pipe</strong>.</li>
+          <li>Click an empty pipe again to swap it (−25 points).</li>
+          <li>Guide the water from the red <strong>valve</strong> into the green <strong>drain</strong>, entering from its open side.</li>
+          <li>Each pipe the water fills is worth 50. Crosses can be filled twice.</li>
+        </ol>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  const N = 1, E = 2, S = 4, W = 8;
+  const DX = { [N]: 0, [E]: 1, [S]: 0, [W]: -1 };
+  const DY = { [N]: -1, [E]: 0, [S]: 1, [W]: 0 };
+  const OPP = { [N]: S, [E]: W, [S]: N, [W]: E };
+  const PIECES = { H: E | W, V: N | S, NE: N | E, NW: N | W, SE: S | E, SW: S | W, X: N | E | S | W };
+  const BAG = ['H', 'H', 'V', 'V', 'NE', 'NE', 'NW', 'NW', 'SE', 'SE', 'SW', 'SW', 'X'];
+  const LEVELS = {
+    easy:   { cols: 7,  rows: 7,  blocks: 0, minDist: 4, countdown: 25, speed: 0.22 },
+    medium: { cols: 9,  rows: 9,  blocks: 4, minDist: 6, countdown: 20, speed: 0.3 },
+    hard:   { cols: 12, rows: 12, blocks: 9, minDist: 9, countdown: 16, speed: 0.38 },
+  };
+  const FAST_SPEED = 3;
+  const PIPE_POINTS = 50, SWAP_COST = 25;
+  const WIN_BONUS = { easy: 300, medium: 600, hard: 1000 };
+  const QUEUE_LEN = 5;
+
+  const board = document.getElementById('board');
+  const ctx = board.getContext('2d');
+  const boardWrap = document.getElementById('boardWrap');
+  const trayEl = document.getElementById('tray');
+  const $ = id => document.getElementById(id);
+  const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+
+  let level = LEVELS[store.get('pipe-splash-level')] ? store.get('pipe-splash-level') : 'easy';
+  let L, grid, start, finish, queue, state, countdown, flow, score, filled, fast;
+  let cell = 48, hover = null, cursor = { x: 0, y: 0 }, focused = false;
+  let particles = [], leak = null, leakTimer = 0, bump = null, overlayTimer = 0, lastSecond = -1;
+
+  const rnd = n => Math.floor(Math.random() * n);
+  const randPiece = () => BAG[rnd(BAG.length)];
+  const inGrid = (x, y) => x >= 0 && y >= 0 && x < L.cols && y < L.rows;
+  const at = (x, y) => grid[y * L.cols + x];
+
+  // ---------- board generation ----------
+  function buildGrid() {
+    grid = Array.from({ length: L.cols * L.rows }, () => ({ kind: 'empty', piece: null, mask: 0, fills: [] }));
+    const sx = 1 + rnd(L.cols - 2), sy = 1 + rnd(L.rows - 2);
+    let fx, fy, tries = 0;
+    do { fx = 1 + rnd(L.cols - 2); fy = 1 + rnd(L.rows - 2); }
+    while (Math.abs(fx - sx) + Math.abs(fy - sy) < L.minDist && ++tries < 300);
+    if (tries >= 300) return false;
+    const sd = [N, E, S, W][rnd(4)], fd = [N, E, S, W][rnd(4)];
+    const sOut = { x: sx + DX[sd], y: sy + DY[sd] }, fIn = { x: fx + DX[fd], y: fy + DY[fd] };
+    if ((sOut.x === fx && sOut.y === fy) || (fIn.x === sx && fIn.y === sy)) return false;
+    Object.assign(at(sx, sy), { kind: 'start', dir: sd });
+    Object.assign(at(fx, fy), { kind: 'finish', dir: fd });
+    start = { x: sx, y: sy }; finish = { x: fx, y: fy };
+
+    let placed = 0, guard = 0;
+    while (placed < L.blocks && guard++ < 1000) {
+      const x = rnd(L.cols), y = rnd(L.rows), c = at(x, y);
+      if (c.kind !== 'empty') continue;
+      if ((x === sOut.x && y === sOut.y) || (x === fIn.x && y === fIn.y)) continue;
+      c.kind = 'block'; placed++;
+    }
+    return reachable(sOut, fIn);
+  }
+
+  // Breadth-first search over empty tiles so every board has at least one route.
+  function reachable(a, b) {
+    const seen = new Set([a.y * L.cols + a.x]);
+    const q = [a];
+    while (q.length) {
+      const p = q.shift();
+      if (p.x === b.x && p.y === b.y) return true;
+      for (const d of [N, E, S, W]) {
+        const nx = p.x + DX[d], ny = p.y + DY[d], k = ny * L.cols + nx;
+        if (inGrid(nx, ny) && !seen.has(k) && at(nx, ny).kind === 'empty') { seen.add(k); q.push({ x: nx, y: ny }); }
+      }
+    }
+    return false;
+  }
+
+  function newGame() {
+    L = LEVELS[level];
+    while (!buildGrid());
+    queue = Array.from({ length: QUEUE_LEN }, randPiece);
+    state = 'countdown'; countdown = L.countdown; flow = null;
+    score = 0; filled = 0; fast = false;
+    particles = []; leak = null; leakTimer = 0; bump = null; lastSecond = -1;
+    cursor = { x: start.x, y: start.y };
+    clearTimeout(overlayTimer);
+    $('overlay').hidden = true;
+    document.querySelectorAll('.difficulty button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.level === level)));
+    resize();
+    updateHud();
+  }
+
+  // ---------- player actions ----------
+  function place(x, y) {
+    if (state !== 'countdown' && state !== 'flowing') return;
+    const c = at(x, y);
+    if (c.kind === 'pipe') {
+      if (c.fills.length) return reject(x, y);
+      score = Math.max(0, score - SWAP_COST);
+    } else if (c.kind !== 'empty') {
+      return reject(x, y);
+    }
+    const piece = queue.shift();
+    queue.push(randPiece());
+    Object.assign(c, { kind: 'pipe', piece, mask: PIECES[piece], placedAt: performance.now() });
+    updateHud();
+  }
+
+  function reject(x, y) { bump = { x, y, t: performance.now() }; }
+
+  // ---------- water flow ----------
+  function openValve() {
+    state = 'flowing'; countdown = 0;
+    const c = at(start.x, start.y);
+    const seg = { entry: 0, exit: c.dir, t: 0 };
+    c.fills.push(seg);
+    flow = { x: start.x, y: start.y, seg, half: true };
+    updateHud();
+  }
+
+  function stepFlow(dt) {
+    const rate = (fast ? FAST_SPEED : L.speed) * (flow.half ? 2 : 1);
+    flow.seg.t = Math.min(1, flow.seg.t + dt * rate);
+    if (flow.seg.t < 1) return;
+
+    const here = at(flow.x, flow.y);
+    if (here.kind === 'finish') return win();
+    const out = flow.seg.exit, nx = flow.x + DX[out], ny = flow.y + DY[out];
+    const spill = { x: flow.x, y: flow.y, dir: out };
+    if (!inGrid(nx, ny)) return lose(spill);
+
+    const next = at(nx, ny), ent = OPP[out];
+    if (next.kind === 'finish') {
+      if (next.dir !== ent) return lose(spill);
+      const seg = { entry: ent, exit: 0, t: 0 };
+      next.fills.push(seg);
+      flow = { x: nx, y: ny, seg, half: true };
+      return;
+    }
+    if (next.kind !== 'pipe' || !(next.mask & ent)) return lose(spill);
+
+    let exit;
+    if (next.piece === 'X') {
+      if (next.fills.some(f => f.entry === ent || f.exit === ent)) return lose(spill);
+      exit = OPP[ent];
+    } else {
+      if (next.fills.length) return lose(spill);
+      exit = next.mask & ~ent;
+    }
+    const seg = { entry: ent, exit, t: 0 };
+    next.fills.push(seg);
+    flow = { x: nx, y: ny, seg, half: false };
+    filled++; score += PIPE_POINTS;
+    updateHud();
+  }
+
+  function win() {
+    state = 'won';
+    score += WIN_BONUS[level];
+    const best = saveBest();
+    const [cx, cy] = center(finish.x, finish.y);
+    for (let i = 0; i < 70; i++) {
+      const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 220;
+      particles.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120, life: 1 + Math.random() * .6 });
+    }
+    updateHud();
+    showOverlay('win', 'Splash!',
+      `The water made it through ${filled} pipe${filled === 1 ? '' : 's'}. Score ${score}` + (best ? ', a new best.' : '.'), 700);
+  }
+
+  function lose(spill) {
+    state = 'lost';
+    leak = spill; leakTimer = 1.6;
+    saveBest();
+    updateHud();
+    showOverlay('lose', 'Leak!',
+      `The water spilled after ${filled} pipe${filled === 1 ? '' : 's'}. Make sure every pipe opens into the next one.`, 1300);
+  }
+
+  function saveBest() {
+    const key = 'pipe-splash-best-' + level;
+    const prev = Number(store.get(key)) || 0;
+    if (state === 'won' && score > prev) { store.set(key, String(score)); return true; }
+    return false;
+  }
+
+  function showOverlay(kind, title, text, delay) {
+    overlayTimer = setTimeout(() => {
+      $('ovCard').className = 'overlay-card ' + kind;
+      $('ovTitle').textContent = title;
+      $('ovText').textContent = text;
+      $('overlay').hidden = false;
+      $('ovBtn').focus({ preventScroll: true });
+    }, delay);
+  }
+
+  // ---------- HUD ----------
+  function updateHud() {
+    $('score').textContent = score;
+    $('pipes').textContent = filled;
+    $('best').textContent = Number(store.get('pipe-splash-best-' + level)) || 0;
+    const btn = $('flowBtn');
+    if (state === 'countdown') { btn.textContent = 'Open valve now'; btn.disabled = false; }
+    else if (state === 'flowing') { btn.textContent = fast ? 'Full speed' : 'Speed up water'; btn.disabled = fast; }
+    else { btn.textContent = state === 'won' ? 'Board cleared' : 'Valve closed'; btn.disabled = true; }
+    if (state === 'flowing') $('timerText').textContent = fast ? 'Water is rushing through.' : 'Water is flowing. Keep building ahead of it.';
+    if (state === 'won') $('timerText').textContent = 'The drain is full.';
+    if (state === 'lost') $('timerText').textContent = 'Water everywhere.';
+    drawTray();
+  }
+
+  function updateTimer() {
+    const frac = state === 'countdown' ? countdown / L.countdown : 0;
+    $('timerBar').style.transform = `scaleX(${frac})`;
+    if (state === 'countdown') {
+      const sec = Math.ceil(countdown);
+      if (sec !== lastSecond) { lastSecond = sec; $('timerText').textContent = `Valve opens in ${sec}s`; }
+    }
+  }
+
+  // ---------- rendering ----------
+  let C = {};
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    for (const k of ['tile', 'tile-alt', 'grout', 'pipe', 'pipe-edge', 'channel', 'liquid', 'liquid-hi', 'valve', 'goal', 'block', 'block-hi', 'warn', 'ink', 'surface'])
+      C[k] = cs.getPropertyValue('--' + k).trim();
+    if (queue) drawTray();
+  }
+  readColors();
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+  new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+
+  const center = (x, y) => [x * cell + cell / 2, y * cell + cell / 2];
+  const edgePt = (x0, y0, s, d) => [x0 + s / 2 + DX[d] * s / 2, y0 + s / 2 + DY[d] * s / 2];
+
+  // Trace the path from opening a to opening b (0 = tile centre), drawn up to fraction t.
+  function tracePath(g, x0, y0, s, a, b, t) {
+    g.beginPath();
+    if (!a || !b || OPP[a] === b) {
+      const p0 = a ? edgePt(x0, y0, s, a) : [x0 + s / 2, y0 + s / 2];
+      const p1 = b ? edgePt(x0, y0, s, b) : [x0 + s / 2, y0 + s / 2];
+      g.moveTo(p0[0], p0[1]);
+      g.lineTo(p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t);
+    } else {
+      const kx = x0 + (DX[a] + DX[b] + 1) * s / 2, ky = y0 + (DY[a] + DY[b] + 1) * s / 2;
+      const pa = edgePt(x0, y0, s, a), pb = edgePt(x0, y0, s, b);
+      const a0 = Math.atan2(pa[1] - ky, pa[0] - kx), a1 = Math.atan2(pb[1] - ky, pb[0] - kx);
+      let d = a1 - a0;
+      if (d > Math.PI) d -= Math.PI * 2;
+      if (d < -Math.PI) d += Math.PI * 2;
+      g.arc(kx, ky, s / 2, a0, a0 + d * t, d < 0);
+    }
+  }
+
+  function pipeBody(g, x0, y0, s, a, b) {
+    g.lineCap = 'butt';
+    tracePath(g, x0, y0, s, a, b, 1);
+    g.strokeStyle = C['pipe-edge']; g.lineWidth = s * .46; g.stroke();
+    g.strokeStyle = C.pipe; g.lineWidth = s * .36; g.stroke();
+    g.strokeStyle = C.channel; g.lineWidth = s * .2; g.stroke();
+  }
+
+  function pipeLiquid(g, x0, y0, s, seg) {
+    if (!seg || seg.t <= 0) return;
+    g.lineCap = 'butt';
+    tracePath(g, x0, y0, s, seg.entry, seg.exit, seg.t);
+    g.strokeStyle = C.liquid; g.lineWidth = s * .2; g.stroke();
+    g.strokeStyle = C['liquid-hi']; g.globalAlpha *= .55; g.lineWidth = s * .05; g.stroke();
+    g.globalAlpha /= .55;
+  }
+
+  function flange(g, x0, y0, s, d) {
+    const th = s * .08, len = s * .54;
+    g.fillStyle = C['pipe-edge'];
+    if (d === N) g.fillRect(x0 + (s - len) / 2, y0, len, th);
+    if (d === S) g.fillRect(x0 + (s - len) / 2, y0 + s - th, len, th);
+    if (d === W) g.fillRect(x0, y0 + (s - len) / 2, th, len);
+    if (d === E) g.fillRect(x0 + s - th, y0 + (s - len) / 2, th, len);
+  }
+
+  function drawPiece(g, piece, x0, y0, s, fills) {
+    const mask = PIECES[piece];
+    const conns = piece === 'X' ? [[E, W], [N, S]] : [[N, E, S, W].filter(d => mask & d)];
+    for (const [a, b] of conns) {
+      pipeBody(g, x0, y0, s, a, b);
+      if (fills) pipeLiquid(g, x0, y0, s, fills.find(f => f.entry === a || f.entry === b));
+    }
+    for (const d of [N, E, S, W]) if (mask & d) flange(g, x0, y0, s, d);
+  }
+
+  function roundRect(g, x, y, w, h, r) {
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  }
+
+  function drawStart(g, c, x0, y0, s) {
+    pipeBody(g, x0, y0, s, 0, c.dir);
+    pipeLiquid(g, x0, y0, s, c.fills[0]);
+    flange(g, x0, y0, s, c.dir);
+    const cx = x0 + s / 2, cy = y0 + s / 2, r = s * .3;
+    // Tank fills up as the countdown runs, so the board shows when the valve will open.
+    g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.fillStyle = C.channel; g.fill();
+    const level = state === 'countdown' ? 1 - countdown / L.countdown : 1;
+    g.save(); g.clip();
+    g.fillStyle = C.liquid; g.fillRect(cx - r, cy + r - level * r * 2, r * 2, level * r * 2);
+    g.restore();
+    g.lineWidth = s * .07; g.strokeStyle = C.valve; g.stroke();
+    // Valve handle
+    g.lineWidth = s * .05; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(cx - r * .7, cy); g.lineTo(cx + r * .7, cy); g.moveTo(cx, cy - r * .7); g.lineTo(cx, cy + r * .7); g.stroke();
+  }
+
+  function drawFinish(g, c, x0, y0, s) {
+    pipeBody(g, x0, y0, s, c.dir, 0);
+    pipeLiquid(g, x0, y0, s, c.fills[0]);
+    flange(g, x0, y0, s, c.dir);
+    const cx = x0 + s / 2, cy = y0 + s / 2, r = s * .3;
+    const full = c.fills[0] && c.fills[0].t >= 1;
+    g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.fillStyle = full ? C.liquid : C.channel; g.fill();
+    g.lineWidth = s * .07; g.strokeStyle = C.goal; g.stroke();
+    // Drain grate
+    g.save(); g.clip();
+    g.strokeStyle = C.goal; g.lineWidth = s * .035;
+    for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(cx + i * r * .38, cy - r); g.lineTo(cx + i * r * .38, cy + r); g.stroke(); }
+    g.restore();
+  }
+
+  function drawBlock(g, x0, y0, s) {
+    const p = s * .12;
+    roundRect(g, x0 + p, y0 + p, s - p * 2, s - p * 2, s * .1);
+    g.fillStyle = C.block; g.fill();
+    g.fillStyle = C['block-hi'];
+    for (const [bx, by] of [[.28, .28], [.72, .28], [.28, .72], [.72, .72]]) {
+      g.beginPath(); g.arc(x0 + s * bx, y0 + s * by, s * .045, 0, Math.PI * 2); g.fill();
+    }
+  }
+
+  function drawTile(g, x0, y0, s, alt) {
+    roundRect(g, x0 + 1, y0 + 1, s - 2, s - 2, s * .08);
+    g.fillStyle = alt ? C['tile-alt'] : C.tile; g.fill();
+  }
+
+  function draw(now) {
+    const s = cell, w = L.cols * s, h = L.rows * s;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = C.grout; ctx.fillRect(0, 0, w, h);
+
+    for (let y = 0; y < L.rows; y++) for (let x = 0; x < L.cols; x++) {
+      const c = at(x, y), x0 = x * s, y0 = y * s;
+      drawTile(ctx, x0, y0, s, (x + y) % 2);
+      if (c.kind === 'block') drawBlock(ctx, x0, y0, s);
+      else if (c.kind === 'start') drawStart(ctx, c, x0, y0, s);
+      else if (c.kind === 'finish') drawFinish(ctx, c, x0, y0, s);
+      else if (c.kind === 'pipe') {
+        const age = (now - c.placedAt) / 160;
+        if (age < 1) {
+          const k = .7 + .3 * (1 - Math.pow(1 - age, 3));
+          ctx.save(); ctx.translate(x0 + s / 2, y0 + s / 2); ctx.scale(k, k); ctx.translate(-x0 - s / 2, -y0 - s / 2);
+          drawPiece(ctx, c.piece, x0, y0, s, c.fills);
+          ctx.restore();
+        } else drawPiece(ctx, c.piece, x0, y0, s, c.fills);
+      }
+    }
+
+    // Preview the next pipe on the hovered tile.
+    const target = hover || (focused ? cursor : null);
+    if (target && (state === 'countdown' || state === 'flowing')) {
+      const c = at(target.x, target.y), x0 = target.x * s, y0 = target.y * s;
+      const canPlace = c.kind === 'empty' || (c.kind === 'pipe' && !c.fills.length);
+      if (canPlace) {
+        if (c.kind === 'pipe') drawTile(ctx, x0, y0, s, (target.x + target.y) % 2);
+        ctx.globalAlpha = .5;
+        drawPiece(ctx, queue[0], x0, y0, s, null);
+        ctx.globalAlpha = 1;
+      }
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = !canPlace ? C.warn : c.kind === 'pipe' ? C.valve : C.ink;
+      if (c.kind === 'pipe' && canPlace) ctx.setLineDash([5, 4]);
+      roundRect(ctx, x0 + 2, y0 + 2, s - 4, s - 4, s * .08); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    if (bump && now - bump.t < 350) {
+      const k = 1 - (now - bump.t) / 350;
+      ctx.globalAlpha = k; ctx.lineWidth = 4; ctx.strokeStyle = C.warn;
+      roundRect(ctx, bump.x * s + 2, bump.y * s + 2, s - 4, s - 4, s * .08); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.fillStyle = C.liquid;
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1.5, s * .045), 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function updateParticles(dt) {
+    if (leak && leakTimer > 0) {
+      leakTimer -= dt;
+      const [px, py] = edgePt(leak.x * cell, leak.y * cell, cell, leak.dir);
+      for (let i = 0; i < 4; i++) {
+        const spread = (Math.random() - .5) * 140, v = 80 + Math.random() * 160;
+        particles.push({
+          x: px, y: py,
+          vx: DX[leak.dir] * v + (DY[leak.dir] ? spread : spread * .3),
+          vy: DY[leak.dir] * v + (DX[leak.dir] ? spread * .3 : spread) - 60,
+          life: .8 + Math.random() * .5,
+        });
+      }
+    }
+    for (const p of particles) { p.vy += 420 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+    particles = particles.filter(p => p.life > 0);
+  }
+
+  const trayCanvases = Array.from({ length: QUEUE_LEN }, (_, i) => {
+    const c = document.createElement('canvas');
+    const size = i === 0 ? 64 : 44;
+    c.width = size * dpr; c.height = size * dpr;
+    if (i === 0) c.className = 'next';
+    c.setAttribute('aria-hidden', 'true');
+    trayEl.appendChild(c);
+    return c;
+  });
+
+  function drawTray() {
+    trayCanvases.forEach((c, i) => {
+      const g = c.getContext('2d'), size = c.width / dpr;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.fillStyle = C.grout; g.fillRect(0, 0, size, size);
+      drawTile(g, 0, 0, size, 0);
+      drawPiece(g, queue[i], 0, 0, size, null);
+    });
+    $('tray').setAttribute('aria-label', 'Next pipe: ' + queue[0]);
+  }
+
+  function resize() {
+    const avail = Math.min(boardWrap.clientWidth, 640, Math.max(320, window.innerHeight - 140));
+    cell = Math.max(24, Math.floor(avail / Math.max(L.cols, L.rows)));
+    board.width = L.cols * cell * dpr; board.height = L.rows * cell * dpr;
+    board.style.width = L.cols * cell + 'px'; board.style.height = L.rows * cell + 'px';
+  }
+
+  // ---------- input ----------
+  function cellFromEvent(e) {
+    const r = board.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) / cell), y = Math.floor((e.clientY - r.top) / cell);
+    return inGrid(x, y) ? { x, y } : null;
+  }
+  board.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') hover = cellFromEvent(e); });
+  board.addEventListener('pointerleave', () => { hover = null; });
+  board.addEventListener('pointerdown', e => {
+    const p = cellFromEvent(e);
+    if (!p) return;
+    cursor = p;
+    place(p.x, p.y);
+  });
+  board.addEventListener('focus', () => { focused = true; });
+  board.addEventListener('blur', () => { focused = false; });
+  board.addEventListener('keydown', e => {
+    const moves = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+    if (moves[e.key]) {
+      e.preventDefault();
+      hover = null;
+      cursor = { x: Math.max(0, Math.min(L.cols - 1, cursor.x + moves[e.key][0])), y: Math.max(0, Math.min(L.rows - 1, cursor.y + moves[e.key][1])) };
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      place(cursor.x, cursor.y);
+    }
+  });
+
+  $('flowBtn').addEventListener('click', () => {
+    if (state === 'countdown') openValve();
+    else if (state === 'flowing') { fast = true; updateHud(); }
+  });
+  $('newBtn').addEventListener('click', newGame);
+  $('ovBtn').addEventListener('click', newGame);
+  document.querySelectorAll('.difficulty button').forEach(b => b.addEventListener('click', () => {
+    level = b.dataset.level;
+    store.set('pipe-splash-level', level);
+    newGame();
+  }));
+  new ResizeObserver(() => resize()).observe(boardWrap);
+  window.addEventListener('resize', resize);
+
+  // ---------- loop ----------
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(.05, (now - last) / 1000);
+    last = now;
+    if (state === 'countdown') {
+      countdown -= dt;
+      if (countdown <= 0) openValve();
+    } else if (state === 'flowing') {
+      stepFlow(dt);
+    }
+    updateTimer();
+    updateParticles(dt);
+    draw(now);
+    requestAnimationFrame(frame);
+  }
+
+  newGame();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
